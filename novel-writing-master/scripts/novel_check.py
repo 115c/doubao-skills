@@ -253,6 +253,8 @@ def check_file(path, do_ai=True, words_range=None, names_info=None):
     cn = len(re.findall(r"[\u4e00-\u9fff]", text))
     paras = paragraphs(text)
     sents = sentences(text)
+    qcn = sum(len(re.findall(r"[\u4e00-\u9fff]", m)) for m in re.findall(r"“[^”]*”", text))
+    dlg = (qcn / cn) if cn else 0
     report["metrics"] = {
         "净字数": net,
         "中文字符": cn,
@@ -260,6 +262,8 @@ def check_file(path, do_ai=True, words_range=None, names_info=None):
         "句数": len(sents),
         "平均句长": round(sum(len(s) for s in sents) / len(sents), 1) if sents else 0,
         "最长段字数": max((len(p) for p in paras), default=0),
+        "对话占比": f"{dlg:.0%}",
+        "均段字数": round(cn / len(paras), 1) if paras else 0,
     }
 
     notes = report["notes"]
@@ -298,6 +302,22 @@ def check_file(path, do_ai=True, words_range=None, names_info=None):
             report["advisory"] += 1
         elif new:
             notes.append(("info", f"本章新增人名：{'、'.join(new)}"))
+
+    # 对话占比（对标实测 37%；长篇靠对话推进更抗疲劳，纯旁白推进易闷）
+    if cn >= 1200:
+        if dlg < 0.18:
+            notes.append(("advisory", f"对话占比 {dlg:.0%}，低于对标常见 30-37%，推进可能压在一次旁白上"))
+            report["advisory"] += 1
+        elif dlg < 0.25:
+            notes.append(("info", f"对话占比 {dlg:.0%}，偏旁白型（对标 37%）"))
+        else:
+            notes.append(("info", f"对话占比 {dlg:.0%}，接近对标区"))
+
+    # 句长 + 对话双低＝碎句流（对标均句 17 字）
+    avg_sent = report["metrics"]["平均句长"]
+    if cn >= 1200 and avg_sent and avg_sent < 12 and dlg < 0.25:
+        notes.append(("advisory", f"平均句长 {avg_sent} 字且对话占比 {dlg:.0%}，旁白偏碎，检查是否该并句"))
+        report["advisory"] += 1
 
     # 连续空行（改稿常带出的脏格式；正常段间只有一个空行）
     if re.search(r"\n[ \t\u3000]*\n[ \t\u3000]*\n", text):
@@ -454,7 +474,9 @@ def print_report(report):
     print(f"\n=== {report.get('file', report.get('dir', ''))} ===")
     m = report.get("metrics")
     if m:
-        print("净字数 {净字数}｜中文 {中文字符}｜段落 {段落数}｜句 {句数}｜平均句长 {平均句长}｜最长段 {最长段字数}".format(**m))
+        print(f"净字数 {m['净字数']}｜中文 {m['中文字符']}｜段落 {m['段落数']}｜句 {m['句数']}"
+              f"｜平均句长 {m['平均句长']}｜最长段 {m['最长段字数']}"
+              f"｜对话占比 {m.get('对话占比', '—')}｜均段 {m.get('均段字数', '—')}")
     for lvl, msg in report.get("notes", []):
         tag = {"blocking": "[阻断]", "advisory": "[提示]", "info": "[信息]"}[lvl]
         print(f"  {tag} {msg}")

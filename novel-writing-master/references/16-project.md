@@ -27,7 +27,10 @@
 │   ├── promises.md
 │   ├── clues.md
 │   ├── questions.md
-│   └── 时间线.md
+│   ├── 时间线.md
+│   ├── 规则表.md          # 规则体系登记（名/给数/留一手/首演/适用范围/冲突预案），硬规则 27
+│   ├── _annot.json        # 人工标注（rule_kit/horror_proof/payoff/info），供 skill_audit.py 读
+│   └── _check.json        # skill_audit.py 出的体检状态（下次开写先读它）
 ├── .work/
 │   ├── 原稿/              # 改稿前备份
 │   └── 去味原稿/
